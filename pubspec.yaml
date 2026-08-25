@@ -1,0 +1,25 @@
+name: brand_icons
+description: >-
+  Resolve a messy service name to a brand icon, with a confidence score you can act on.
+  3,453 marks compiled in, plus optional App Store, Brandfetch and favicon tiers.
+version: 1.0.0
+repository: https://github.com/infiniah/brand-icons-flutter
+issue_tracker: https://github.com/infiniah/brand-icons-flutter/issues
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  assets:
+    - assets/brand_marks.json
