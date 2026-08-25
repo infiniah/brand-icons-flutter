@@ -46,8 +46,9 @@ class BrandCatalog {
     for (final entry in entries.cast<Map<String, dynamic>>()) {
       final slug = entry['slug'] as String?;
       final title = entry['title'] as String?;
-      final path = entry['path'] as String?;
-      if (slug == null || title == null || path == null) continue;
+      // Absent on a mark with colour layers, which are drawn instead.
+      final path = entry['path'] as String? ?? '';
+      if (slug == null || title == null) continue;
 
       final viewBox = _numbers(entry['viewBox']) ?? const [0.0, 0.0, 24.0, 24.0];
       final colorViewBox = _numbers(entry['colorViewBox']);
@@ -70,6 +71,8 @@ class BrandCatalog {
       final usableColor = layers.isNotEmpty && colorViewBox != null;
 
       final licenseRaw = entry['license'] as Map<String, dynamic>?;
+      if (path.isEmpty && !usableColor) continue;
+
       marks.add(
         BundledMark(
           slug: slug,

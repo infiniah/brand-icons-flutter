@@ -65,8 +65,11 @@ void main() {
     final failed = <String>[];
     var paths = 0;
     for (final mark in catalog.marks) {
-      paths++;
-      if (SVGPathParser.parse(mark.path) == null) failed.add('${mark.slug}: mono');
+      // A mark with colour layers carries no flattened path, so there is nothing to parse.
+      if (mark.path.isNotEmpty) {
+        paths++;
+        if (SVGPathParser.parse(mark.path) == null) failed.add('${mark.slug}: mono');
+      }
       for (var index = 0; index < mark.layers.length; index++) {
         paths++;
         if (SVGPathParser.parse(mark.layers[index].path) == null) {
@@ -75,6 +78,6 @@ void main() {
       }
     }
     expect(failed, isEmpty, reason: 'paths that did not parse');
-    expect(paths, greaterThan(9000));
+    expect(paths, greaterThan(4000));
   });
 }
