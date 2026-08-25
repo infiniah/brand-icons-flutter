@@ -109,7 +109,7 @@ marks and says nothing about the other four thousand.
 | Flutter, Dart | this repository |
 | iOS and macOS, Swift | [infiniah/brand-icons-ios](https://github.com/infiniah/brand-icons-ios) |
 | Android, Kotlin | [infiniah/brand-icons-android](https://github.com/infiniah/brand-icons-android) |
-| React Native and Expo, TypeScript | [infiniah/brand-icons-react-native](https://github.com/infiniah/brand-icons-react-native) |
+| React Native and Expo, TypeScript | [infiniah/brand-icons-expo](https://github.com/infiniah/brand-icons-expo) |
 
 ## License
 
