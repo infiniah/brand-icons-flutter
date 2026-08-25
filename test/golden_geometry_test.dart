@@ -22,7 +22,9 @@ void main() {
       final mark = catalog.mark(slug);
       expect(mark, isNotNull, reason: 'catalogue is missing $slug');
 
-      final segments = SVGPathParser.parse(mark!.path);
+      final layer = row['layer'] as int?;
+      final data = layer == null ? mark!.path : mark!.layers[layer].path;
+      final segments = SVGPathParser.parse(data);
       expect(segments, isNotNull, reason: '$slug did not parse');
 
       final kinds = segments!.map((segment) => switch (segment) {

@@ -1,177 +1,234 @@
 import 'package:brand_icons/brand_icons.dart';
 import 'package:flutter/material.dart';
 
-import 'application.dart';
+import 'facet_tabs.dart';
+import 'mark_cell.dart';
+import 'mark_detail_sheet.dart';
+import 'mark_facet.dart';
+import 'mark_search_field.dart';
 import 'palette.dart';
 
-void main() => runApp(const AppliedApp());
-
-class AppliedApp extends StatelessWidget {
-  const AppliedApp({super.key});
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Applied',
-        debugShowCheckedModeBanner: false,
-        theme: Palette.theme(Brightness.light),
-        darkTheme: Palette.theme(Brightness.dark),
-        home: const ApplicationsScreen(),
-      );
+void main() {
+  const query = String.fromEnvironment('query');
+  runApp(const MarksApp(initialQuery: query));
 }
 
-/// A job application tracker that resolves an icon for every company.
-///
-/// The point of the screen is the leading mark on each row: none of these names were typed as a
-/// slug, and one of them is a brand the monochrome catalogue does not carry at all.
-class ApplicationsScreen extends StatefulWidget {
-  const ApplicationsScreen({super.key});
+class MarksApp extends StatelessWidget {
+  const MarksApp({super.key, this.initialQuery = ''});
+
+  final String initialQuery;
 
   @override
-  State<ApplicationsScreen> createState() => _ApplicationsScreenState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Marks',
+      debugShowCheckedModeBanner: false,
+      theme: Palette.theme(Brightness.light),
+      darkTheme: Palette.theme(Brightness.dark),
+      home: MarksScreen(initialQuery: initialQuery),
+    );
+  }
 }
 
-class _ApplicationsScreenState extends State<ApplicationsScreen> {
-  final _applications = Application.sample;
+class MarksScreen extends StatefulWidget {
+  const MarksScreen({super.key, this.initialQuery = ''});
+
+  final String initialQuery;
+
+  @override
+  State<MarksScreen> createState() => _MarksScreenState();
+}
+
+class _MarksScreenState extends State<MarksScreen> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialQuery);
+
   BrandCatalog? _catalog;
+  CatalogVariant _variant = CatalogVariant.full;
+  MarkFacet _facet = MarkFacet.all;
+  List<BundledMark> _visible = const [];
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_refilter);
     _load();
   }
 
-  Future<void> _load() async {
-    // The package finds and parses its own catalogue, and holds it for the process.
-    final catalog = await defaultCatalog();
-    final resolver = await BrandIconResolver.bundled(
-      configuration: ResolverConfiguration.offline,
-    );
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-    for (final application in _applications) {
-      final result = await resolver.resolve(BrandQuery(application.company));
-      application.icon = result.best(minimum: 0.5);
+  Future<void> _load() async {
+    final catalog = await defaultCatalog(variant: _variant);
+    if (!mounted) return;
+    setState(() => _catalog = catalog);
+    _refilter();
+  }
+
+  void _refilter() {
+    final catalog = _catalog;
+    if (catalog == null) return;
+    setState(() => _visible = _filter(catalog.marks, _facet, _controller.text));
+  }
+
+  /// Substring first, because a browser is a filter and the answer to `spo` is every mark
+  /// containing it. The scorer only runs when that finds nothing, which is the case a misspelling
+  /// produces: it shares no substring and edit distance is what catches it.
+  static List<BundledMark> _filter(
+    List<BundledMark> marks,
+    MarkFacet facet,
+    String query,
+  ) {
+    final faceted = marks.where(facet.contains).toList();
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return faceted;
+
+    final literal = <(BundledMark, int)>[];
+    for (final mark in faceted) {
+      final rank = _rank(mark, needle);
+      if (rank != null) literal.add((mark, rank));
     }
-    if (mounted) setState(() => _catalog = catalog);
+    if (literal.isNotEmpty) {
+      literal.sort((a, b) =>
+          a.$2 == b.$2 ? a.$1.slug.compareTo(b.$1.slug) : a.$2.compareTo(b.$2));
+      return literal.map((entry) => entry.$1).toList();
+    }
+
+    final scored = faceted
+        .map((mark) => (mark, MatchScorer.score(needle, name: mark.title, slug: mark.slug)))
+        .where((entry) => entry.$2 >= 0.35)
+        .toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.map((entry) => entry.$1).toList();
+  }
+
+  /// Lower sorts first. A name that starts with what was typed is what the typist meant, so `spo`
+  /// puts Spotify above Diaspora rather than leaving it to the alphabet.
+  static int? _rank(BundledMark mark, String needle) {
+    final title = mark.title.toLowerCase();
+    if (mark.slug.startsWith(needle)) return 0;
+    if (title.startsWith(needle)) return 1;
+    if (mark.slug.contains(needle)) return 2;
+    if (title.contains(needle)) return 3;
+    return null;
+  }
+
+  String get _summary {
+    final catalog = _catalog;
+    if (catalog == null) return 'Loading the catalogue…';
+    final colour = catalog.marks.where((mark) => mark.layers.isNotEmpty).length;
+    return '${_thousands(catalog.marks.length)} brands · ${_thousands(colour)} in colour';
+  }
+
+  static String _thousands(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+      buffer.write(digits[index]);
+    }
+    return buffer.toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
-        child: _catalog == null
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-                    child: Text(
-                      'Applied',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: scheme.onSurface,
-                      ),
+                  Text(
+                    'Marks',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
-                    child: Text(
-                      '${_applications.length} applications',
-                      style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+                  Text(
+                    _summary,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(
-                      children: [
-                        for (var index = 0; index < _applications.length; index++) ...[
-                          _Row(application: _applications[index]),
-                          if (index < _applications.length - 1)
-                            Divider(height: 1, indent: 68, color: scheme.outlineVariant),
-                        ],
-                      ],
-                    ),
+                  const SizedBox(height: 12),
+                  MarkSearchField(
+                    controller: _controller,
+                    variant: _variant,
+                    onToggleVariant: () {
+                      setState(() {
+                        _variant = _variant == CatalogVariant.full
+                            ? CatalogVariant.compact
+                            : CatalogVariant.full;
+                        _catalog = null;
+                      });
+                      _load();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  FacetTabs(
+                    selection: _facet,
+                    onSelect: (facet) {
+                      setState(() => _facet = facet);
+                      _refilter();
+                    },
                   ),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.application});
-
-  final Application application;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          BrandIcon(
-            candidate: application.icon,
-            size: 40,
-            fallbackText: application.company,
-            surface: scheme.surface,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  application.company,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  application.role,
-                  style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: application.status.tint.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  application.status.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: application.status.tint,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                application.postedAgo,
-                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ],
+            Container(height: 1, color: theme.colorScheme.outlineVariant),
+            Expanded(
+              child: _visible.isEmpty
+                  ? Center(
+                      child: Text(
+                        _catalog == null
+                            ? 'Loading the catalogue…'
+                            : 'Nothing matches “${_controller.text}”',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: _visible.length,
+                      itemBuilder: (context, index) {
+                        final mark = _visible[index];
+                        return MarkCell(
+                          mark: mark,
+                          onTap: () => showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: theme.scaffoldBackgroundColor,
+                            builder: (_) => FractionallySizedBox(
+                              heightFactor: 0.92,
+                              child: MarkDetailSheet(mark: mark),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

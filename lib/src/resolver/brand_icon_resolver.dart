@@ -50,10 +50,11 @@ class BrandIconResolver {
   /// ```
   static Future<BrandIconResolver> bundled({
     ResolverConfiguration configuration = const ResolverConfiguration(),
+    CatalogVariant variant = CatalogVariant.full,
     List<BrandIconProvider>? providers,
   }) async =>
       BrandIconResolver(
-        await defaultCatalog(),
+        await defaultCatalog(variant: variant),
         configuration: configuration,
         providers: providers,
       );

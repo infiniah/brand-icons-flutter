@@ -32,6 +32,7 @@ class BrandIcon extends StatelessWidget {
   final Color? surface;
 
   /// What SVG paints a path with no `fill` attribute.
+  static const BrandColor unsetFill = BrandColor(0x1C, 0x1C, 0x1E);
   static const int unsetFillArgb = 0xFF1C1C1E;
   static const _contrastThreshold = 0.22;
 
@@ -42,7 +43,14 @@ class BrandIcon extends StatelessWidget {
     final shape = candidate?.shape;
 
     final colors = _markColors(shape);
-    final groundLuminance = ground.computeLuminance();
+    // Not `Color.computeLuminance`: that gamma decodes, and the marks report the plain sRGB
+    // weighting every other port uses. Mixing the two shifts the threshold by a factor of ten
+    // and a mark keeps its tile on one platform and loses it on another.
+    final groundLuminance = BrandColor(
+      (ground.r * 255).round(),
+      (ground.g * 255).round(),
+      (ground.b * 255).round(),
+    ).relativeLuminance;
     final needsTile = colors.isNotEmpty &&
         colors.every((color) =>
             ((color.relativeLuminance) - groundLuminance).abs() < _contrastThreshold);
@@ -100,8 +108,11 @@ class BrandIcon extends StatelessWidget {
 
   static List<BrandColor> _markColors(BrandIconShape? shape) => switch (shape) {
         VectorShape(:final tint) => tint == null ? const [] : [tint],
+        // An unfilled layer is painted [unsetFill], so it counts towards the decision. Dropping
+        // it leaves a mark whose layers carry no fill reporting no colours at all, and a black
+        // mark then lands untiled on a black surface.
         LayeredVectorShape(:final layers) =>
-          layers.map((layer) => layer.fill).whereType<BrandColor>().toList(),
+          layers.map((layer) => layer.fill ?? unsetFill).toList(),
         _ => const [],
       };
 }

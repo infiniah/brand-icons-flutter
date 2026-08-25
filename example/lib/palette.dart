@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The same palette the iOS and Android samples use, so Applied is one product on four platforms.
+/// The same palette the iOS and Android samples use, so Marks is one product on four platforms.
 abstract final class Palette {
   static const canvasLight = Color(0xFFF4F4F2);
   static const canvasDark = Color(0xFF0E0F11);
@@ -27,19 +27,10 @@ abstract final class Palette {
         brightness: brightness,
       ).copyWith(
         surface: isDark ? cardDark : cardLight,
+        onSurface: isDark ? titleDark : titleLight,
+        onSurfaceVariant: isDark ? secondaryDark : secondaryLight,
         outlineVariant: isDark ? hairlineDark : hairlineLight,
       ),
     );
   }
-}
-
-enum ApplicationStatus {
-  applied('Applied', Color(0xFF6B7380)),
-  interview('Interview', Color(0xFF1C66DE)),
-  offer('Offer', Color(0xFF107F4F)),
-  rejected('Rejected', Color(0xFFB33133));
-
-  const ApplicationStatus(this.label, this.tint);
-  final String label;
-  final Color tint;
 }

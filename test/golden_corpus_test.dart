@@ -54,6 +54,6 @@ void main() {
 
   test('the catalogue is the version the corpus was generated from', () {
     expect(catalog.sourceVersion, '16.28.0');
-    expect(catalog.marks.length, 4309);
+    expect(catalog.marks.length, 4770);
   });
 }
