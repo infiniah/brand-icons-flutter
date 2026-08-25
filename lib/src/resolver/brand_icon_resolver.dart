@@ -1,4 +1,5 @@
 import '../catalog/brand_catalog.dart';
+import '../catalog/default_catalog.dart';
 import '../core/brand_icon_candidate.dart';
 import '../core/brand_icon_error.dart';
 import '../core/brand_icon_result.dart';
@@ -23,6 +24,9 @@ import 'resolver_configuration.dart';
 /// Providers are consulted cheapest first and the resolver stops early once a candidate is good
 /// enough, so the common case never touches the network.
 class BrandIconResolver {
+  /// Wraps a catalogue you already have.
+  ///
+  /// Prefer [BrandIconResolver.bundled] unless you are shipping your own marks.
   BrandIconResolver(
     BrandCatalog catalog, {
     this.configuration = const ResolverConfiguration(),
@@ -38,6 +42,21 @@ class BrandIconResolver {
               if (configuration.allowsNetwork && configuration.allowsAppStore)
                 AppStoreProvider(isEnabled: true),
             ];
+
+  /// A resolver over the catalogue bundled with this package.
+  ///
+  /// ```dart
+  /// final resolver = await BrandIconResolver.bundled();
+  /// ```
+  static Future<BrandIconResolver> bundled({
+    ResolverConfiguration configuration = const ResolverConfiguration(),
+    List<BrandIconProvider>? providers,
+  }) async =>
+      BrandIconResolver(
+        await defaultCatalog(),
+        configuration: configuration,
+        providers: providers,
+      );
 
   final ResolverConfiguration configuration;
   final List<BrandIconProvider> providers;

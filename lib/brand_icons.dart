@@ -2,6 +2,7 @@
 library brand_icons;
 
 export 'src/catalog/brand_catalog.dart';
+export 'src/catalog/default_catalog.dart';
 export 'src/catalog/bundled_mark.dart';
 export 'src/core/brand_color.dart';
 export 'src/core/brand_icon_candidate.dart';

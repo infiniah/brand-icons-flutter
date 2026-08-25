@@ -4,32 +4,47 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B?style=flat-square)](https://flutter.dev)
 [![License](https://img.shields.io/badge/license-MIT-black?style=flat-square)](LICENSE)
 
-**You have a messy string. You need the right brand icon. That is the whole problem.**
+**A fast, reliable way to get brand icons. No API, no key, no network.**
+
+Getting a company's logo normally means calling somebody's service. That is a round trip you wait
+on, a key you have to keep, a bill that scales with your users, a rate limit, and a dependency that
+can go down or disappear. It also means telling a third party every company name your users look at.
+
+This is a local lookup instead. **4,309 marks are compiled into the binary**, so a name the
+catalogue knows resolves in about **10 microseconds** and cannot fail, rate limit, or phone anyone.
+It works on a plane.
+
+Because it is a resolver rather than a file lookup, it also handles the names you actually have
+rather than the ones you wish you had:
 
 ```
-"APPLE.COM/BILL SPOTIFY"   →   Spotify      0.90
-"SQ *BLUE BOTTLE"          →   nothing      —
+"APPLE.COM/BILL SPOTIFY"   →   Spotify      1.00
 "NOTION LABS INC"          →   Notion       0.81
-"Apple One"                →   ambiguous, ask the user
+"SQ *BLUE BOTTLE"          →   nothing      —
+"Amazon"                   →   two sub brands tie, ask the user
 ```
 
-Those are real bank statement descriptors. Exact matching finds none of them. A `Map` lookup keyed
-on the name finds none of them. This library resolves them offline, in microseconds, and tells you
-how sure it is so you can decide what to do about it.
+Every answer carries a score, so you decide what to do when it is not sure instead of silently
+drawing the wrong logo.
+
+<p align="center">
+  <img src="docs/images/applied-flutter.png" width="290" alt="The example app resolving six companies to their real marks">
+  <img src="docs/images/applied-flutter-dark.png" width="290" alt="The same list in dark mode">
+</p>
 
 ## Why not just…
 
-**…ship an icon set and look up by name?** An icon set gives you files. It does not answer "which
-brand is `APPLE.COM/BILL SPOTIFY`", which is the actual work.
+**…call a logo API?** Latency on every icon, a key to manage, a bill per lookup, a rate limit, and
+an outage you cannot fix. This is a function call against memory.
 
-**…call a logo API?** It costs money per lookup, needs a key, breaks when it is down, and tells a
-third party every company name your users type.
+**…ship an icon set and look these up yourself?** An icon set gives you files, keyed by exact slug.
+It does not answer "which brand is `APPLE.COM/BILL SPOTIFY`", which is the actual work.
 
-**…use a store search?** Apple's is wrapped here as an optional tier. Google publishes no
-equivalent public search API, so there is no Play tier.
+**…use a store search?** Apple's is wrapped here as an optional tier. Google publishes no equivalent
+public search API, so there is no Play tier.
 
-**…just take the top match?** That is how you silently draw the wrong logo. `Apple One` matches
-`Apple`, `Apple TV` and `Apple Music` almost equally well, and the honest answer is to ask.
+**…just take the top match?** That is how you silently draw the wrong logo. `Amazon` matches two
+Amazon sub brands at exactly the same score, and the honest answer is to ask.
 
 ## What you get
 
@@ -49,18 +64,15 @@ dependencies:
 
 ```dart
 import 'package:brand_icons/brand_icons.dart';
-import 'package:flutter/services.dart';
 
-final catalog = BrandCatalog.parse(
-  await rootBundle.loadString('packages/brand_icons/assets/brand_marks.json'),
-);
-final resolver = BrandIconResolver(catalog);
+final resolver = await BrandIconResolver.bundled();
 
 final result = await resolver.resolve(BrandQuery('APPLE.COM/BILL SPOTIFY'));
 final icon = result.best(minimum: 0.8);
 ```
 
-Parse the catalogue once and keep it: building its indexes walks every mark twice.
+The package finds and parses its own catalogue and memoises it, so awaiting `bundled` again is
+free. Pass your own `BrandCatalog` to the constructor if you ship your own marks.
 
 To draw the answer:
 
@@ -71,7 +83,7 @@ BrandIcon(candidate: icon, fallbackText: company, size: 40)
 ## Acting on the score
 
 ```dart
-final result = await resolver.resolve(BrandQuery('Apple One'));
+final result = await resolver.resolve(BrandQuery('Amazon'));
 
 if (result.best(minimum: 0.8) != null) {
   draw(result.candidates.first);
@@ -110,6 +122,14 @@ marks and says nothing about the other four thousand.
 | iOS and macOS, Swift | [infiniah/brand-icons-ios](https://github.com/infiniah/brand-icons-ios) |
 | Android, Kotlin | [infiniah/brand-icons-android](https://github.com/infiniah/brand-icons-android) |
 | React Native and Expo, TypeScript | [infiniah/brand-icons-expo](https://github.com/infiniah/brand-icons-expo) |
+
+## Example app
+
+`example/` is a job application tracker that resolves an icon for every company.
+
+```sh
+cd example && flutter run
+```
 
 ## License
 
